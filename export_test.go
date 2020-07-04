@@ -89,7 +89,7 @@ func TestExport(t *testing.T) {
 		}
 		defer gzfp.Close()
 
-		goatcounter.Import(ctx, gzfp, false, false)
+		goatcounter.Import(ctx, gzfp, false, false, nil)
 
 		_, err = goatcounter.Memstore.Persist(ctx)
 		if err != nil {

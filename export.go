@@ -24,7 +24,7 @@ import (
 	"zgo.at/zvalidate"
 )
 
-const exportVersion = "1"
+const ExportVersion = "1"
 
 type Export struct {
 	ID     int64 `db:"export_id" json:"id,readonly"`
@@ -105,7 +105,7 @@ func (e *Export) Run(ctx context.Context, fp *os.File, mailUser bool) {
 	defer gzfp.Close()
 
 	c := csv.NewWriter(gzfp)
-	c.Write([]string{exportVersion + "Path", "Title", "Event", "Bot", "Session",
+	c.Write([]string{ExportVersion + "Path", "Title", "Event", "Bot", "Session",
 		"FirstVisit", "Referrer", "Referrer scheme", "Browser", "Screen size",
 		"Location", "Date"})
 
@@ -239,7 +239,7 @@ func (e *Exports) List(ctx context.Context) error {
 }
 
 // Import data from an export.
-func Import(ctx context.Context, fp io.Reader, replace, email bool) {
+func Import(ctx context.Context, fp io.Reader, replace, email bool, clicb func()) {
 	site := MustGetSite(ctx)
 	user := GetUser(ctx)
 	db := zdb.MustGet(ctx)
@@ -254,10 +254,10 @@ func Import(ctx context.Context, fp io.Reader, replace, email bool) {
 		return
 	}
 
-	if len(header) == 0 || !strings.HasPrefix(header[0], exportVersion) {
+	if len(header) == 0 || !strings.HasPrefix(header[0], ExportVersion) {
 		importError(l, *user, errors.Errorf(
 			"wrong version of CSV database: %s (expected: %s)",
-			header[0][:1], exportVersion))
+			header[0][:1], ExportVersion))
 		return
 	}
 
@@ -365,8 +365,12 @@ func Import(ctx context.Context, fp io.Reader, replace, email bool) {
 		Memstore.Append(hit)
 		n++
 
+		if clicb != nil && n%500 == 0 {
+			clicb()
+		}
+
 		// Spread out the load a bit.
-		if cfg.Prod && n%5000 == 0 {
+		if clicb == nil && cfg.Prod && n%5000 == 0 {
 			time.Sleep(10 * time.Second)
 		}
 	}
