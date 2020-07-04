@@ -49,7 +49,8 @@ type Hit struct {
 	Random string   `db:"-" json:"rnd"` // Browser cache buster, as they don't always listen to Cache-Control
 
 	// Some values we need to pass from the HTTP handler to memstore
-	RemoteAddr string `db:"-" json:"-"`
+	RemoteAddr    string `db:"-" json:"-"`
+	UserSessionID string `db:"-" json:"-"`
 }
 
 func (h *Hit) cleanPath(ctx context.Context) {
@@ -215,7 +216,8 @@ func (h *Hit) Validate(ctx context.Context) error {
 
 	// Small margin as client's clocks may not be 100% accurate.
 	if h.CreatedAt.After(Now().Add(5 * time.Second)) {
-		v.Append("created_at", "in the future")
+		//v.Append("created_at", "in the future")
+		//v.Append("created_at", fmt.Sprintf("in the future %s -> %s", h.CreatedAt, Now()))
 	}
 
 	return v.ErrorOrNil()

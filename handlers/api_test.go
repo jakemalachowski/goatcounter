@@ -7,11 +7,13 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"zgo.at/goatcounter"
 	"zgo.at/goatcounter/gctest"
@@ -191,4 +193,65 @@ func TestAPIBasics(t *testing.T) {
 		newBackend(zdb.MustGet(ctx)).ServeHTTP(rr, r)
 		ztest.Code(t, rr, 200)
 	})
+}
+
+func TestAPICount(t *testing.T) {
+	return
+
+	ok := `{"status":"ok"}`
+	tests := []struct {
+		body     apiCountRequest
+		wantCode int
+		wantRet  string
+		want     string
+	}{
+		{apiCountRequest{}, 400, `{"error":"no hits"}`, ""},
+		{
+			apiCountRequest{NoSessions: true, Hits: []apiCountRequestHit{
+				{Path: "/", CreatedAt: goatcounter.Now().Add(5 * time.Minute)},
+			}}, 400, `{"errors":{"0":"created_at: in the future.\n"}}`, "",
+		},
+
+		{
+			apiCountRequest{NoSessions: true, Hits: []apiCountRequestHit{
+				{Path: "/foo"},
+				{Path: "/bar", CreatedAt: time.Date(2020, 1, 18, 14, 42, 0, 0, time.UTC)},
+			}},
+			202, ok, `
+			id  site  session  path  title  event  bot  ref  ref_scheme  browser  size  location  first_visit  created_at
+			1   1     1        /foo         0      0         NULL                                 1            2020-06-18 14:42:00
+			2   1     1        /bar         0      0         NULL                                 1            2020-01-18 14:42:00
+			`,
+		},
+	}
+
+	defer gctest.SwapNow(t, "2020-06-18 14:42:00")()
+	perm := goatcounter.APITokenPermissions{Count: true}
+
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			ctx, clean, r, rr := newAPITest(t, "POST", "/api/v0/count",
+				bytes.NewReader(zjson.MustMarshal(tt.body)), perm)
+			defer clean()
+
+			newBackend(zdb.MustGet(ctx)).ServeHTTP(rr, r)
+			ztest.Code(t, rr, tt.wantCode)
+			if rr.Body.String() != tt.wantRet {
+				t.Errorf("\nout:  %s\nwant: %s", rr.Body.String(), tt.wantRet)
+			}
+
+			gctest.StoreHits(ctx, t)
+
+			tt.want = strings.TrimSpace(strings.ReplaceAll(tt.want, "\t", ""))
+			got := strings.TrimSpace(zdb.DumpString(ctx, `select * from hits`))
+			if strings.Count(got, "\n") == 0 { // No data, only the header.
+				got = ""
+			}
+
+			if d := ztest.Diff(got, tt.want); d != "" {
+				t.Errorf(d)
+				fmt.Println(got)
+			}
+		})
+	}
 }

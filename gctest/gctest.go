@@ -276,8 +276,21 @@ func Site(ctx context.Context, t *testing.T, site goatcounter.Site) (context.Con
 	return ctx, site
 }
 
-func SwapNow(t *testing.T, date string) func() {
-	d, err := time.Parse("2006-01-02 15:04:05", date)
+func SwapNow(t *testing.T, date interface{}) func() {
+	var (
+		d   time.Time
+		err error
+	)
+	switch dd := date.(type) {
+	case string:
+		d, err = time.Parse("2006-01-02 15:04:05", dd)
+	case time.Time:
+		d = dd
+	case *time.Time:
+		d = *dd
+	default:
+		t.Fatalf("unknown type: %T", date)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

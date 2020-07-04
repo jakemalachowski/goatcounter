@@ -419,13 +419,8 @@ func TestBackendPurge(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			if len(hits) != 1 {
-				t.Logf("still have %d hits in DB (expected 1):\n", len(hits))
-				for _, h := range hits {
-					t.Logf("   ID: %d; Path: %q; Title: %q\n", h.ID, h.Path, h.Title)
-				}
-				t.FailNow()
+				t.Errorf("%d hits in DB; expected 1:\n%v", len(hits), hits)
 			}
 		})
 	}
@@ -817,7 +812,8 @@ func TestBackendBarChart(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.zone, func(t *testing.T) {
-			goatcounter.Now = func() time.Time { return tt.now.UTC() }
+			defer gctest.SwapNow(t, tt.now.UTC())()
+
 			t.Run("hourly", func(t *testing.T) {
 				run(t, tt, "/?period-start=2019-06-17&period-end=2019-06-18", tt.wantHourly)
 			})

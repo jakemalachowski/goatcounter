@@ -210,7 +210,7 @@ func (m *ms) Persist(ctx context.Context) ([]Hit, error) {
 		ctx = WithSite(ctx, site)
 
 		if h.Session.IsZero() {
-			h.Session, h.FirstVisit = m.session(ctx, site.ID, h.Path, h.Browser, h.RemoteAddr)
+			h.Session, h.FirstVisit = m.session(ctx, site.ID, h.UserSessionID, h.Path, h.Browser, h.RemoteAddr)
 		}
 
 		// Persist.
@@ -218,6 +218,7 @@ func (m *ms) Persist(ctx context.Context) ([]Hit, error) {
 		err := h.Validate(ctx)
 		if err != nil {
 			l.Field("hit", h).Error(err)
+			return nil, err
 			continue
 		}
 
@@ -294,16 +295,19 @@ func (m *ms) SessionID() zint.Uint128 {
 	return i
 }
 
-func (m *ms) session(ctx context.Context, siteID int64, path, ua, remoteAddr string) (zint.Uint128, zdb.Bool) {
-	h := sha256.New()
-	h.Write(append(append(append(m.curSalt, ua...), remoteAddr...), strconv.FormatInt(siteID, 10)...))
-	hash := string(h.Sum(nil))
+func (m *ms) session(ctx context.Context, siteID int64, userSessionID, path, ua, remoteAddr string) (zint.Uint128, zdb.Bool) {
+	hash := userSessionID
+	if hash == "" {
+		h := sha256.New()
+		h.Write(append(append(append(m.curSalt, ua...), remoteAddr...), strconv.FormatInt(siteID, 10)...))
+		hash = string(h.Sum(nil))
+	}
 
 	m.sessionMu.Lock()
 	defer m.sessionMu.Unlock()
 
 	id, ok := m.sessions[hash]
-	if !ok { // Try previous hash
+	if !ok && userSessionID == "" { // Try previous hash
 		h := sha256.New()
 		h.Write(append(append(append(m.prevSalt, ua...), remoteAddr...), strconv.FormatInt(siteID, 10)...))
 		prevHash := string(h.Sum(nil))

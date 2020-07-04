@@ -14,7 +14,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.0
 	github.com/monoculum/formam v0.0.0-20200527175922-6f3cce7a46cf
 	github.com/teamwork/reload v1.3.2
-	github.com/zgoat/kommentaar v0.0.0-20200718094027-9fe5c6e0bb9a
+	github.com/zgoat/kommentaar v0.0.0-20200723124016-8596c8d73b76
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
